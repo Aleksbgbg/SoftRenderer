@@ -31,6 +31,11 @@ impl Sdl2Window {
     }
   }
 
+  pub fn clear(&mut self) {
+    self.canvas.set_draw_color(pixels::Color::BLACK);
+    self.canvas.clear();
+  }
+
   pub fn present(&mut self) {
     self.canvas.present();
   }

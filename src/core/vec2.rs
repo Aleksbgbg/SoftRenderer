@@ -27,3 +27,4 @@ impl<T: Copy> Vec2<T> {
 pub type Vec2i = Vec2<i32>;
 pub type Vec2u = Vec2<u32>;
 pub type Vec2f = Vec2<f64>;
+pub type Point = Vec2i;
