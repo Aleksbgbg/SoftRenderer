@@ -27,4 +27,12 @@ impl<T: Copy> Vec2<T> {
 pub type Vec2i = Vec2<i32>;
 pub type Vec2u = Vec2<u32>;
 pub type Vec2f = Vec2<f64>;
-pub type Point = Vec2i;
+
+impl Vec2u {
+  pub fn normalize(&self, bounds: Vec2u) -> Vec2f {
+    Vec2f::new(
+      self.x() as f64 / bounds.x() as f64,
+      self.y() as f64 / bounds.y() as f64,
+    )
+  }
+}

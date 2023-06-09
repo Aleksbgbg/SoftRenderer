@@ -3,7 +3,7 @@ mod core;
 mod displays;
 mod rasterizer;
 
-use crate::core::vec2::{Vec2i, Vec2u};
+use crate::core::vec2::Vec2u;
 use crate::core::vec4::Color;
 use crate::displays::display::Display;
 use crate::displays::sdl2_window::Sdl2Window;
@@ -13,6 +13,8 @@ use sdl2::keyboard::Keycode;
 use std::thread;
 use std::time::Duration;
 
+const BASE_SCREEN_SIZE: Vec2u = Vec2u::new(1366, 768);
+
 fn main() {
   let sdl_context = sdl2::init().expect("Could not initialize SDL.");
 
@@ -20,7 +22,7 @@ fn main() {
     .event_pump()
     .expect("Could not obtain the SDL event pump.");
 
-  let mut display = Sdl2Window::new(&sdl_context, Vec2u::new(1366, 768));
+  let mut display = Sdl2Window::new(&sdl_context, BASE_SCREEN_SIZE);
 
   'app_loop: loop {
     for event in event_pump.poll_iter() {
@@ -46,28 +48,39 @@ fn main() {
 fn game_loop(display: &mut dyn Display) {
   const FILL: Fill = Fill::Wireframe(Color::new(94, 129, 172, 255));
 
-  display.draw(Triangle2d::new([Vec2i::new(500, 20); 3]), FILL);
   display.draw(
-    Triangle2d::new([Vec2i::new(60, 30), Vec2i::new(70, 20), Vec2i::new(80, 30)]),
-    FILL,
-  );
-  display.draw(
-    Triangle2d::new([Vec2i::new(10, 25), Vec2i::new(20, 20), Vec2i::new(30, 80)]),
+    Triangle2d::new([Vec2u::new(500, 20).normalize(BASE_SCREEN_SIZE); 3]),
     FILL,
   );
   display.draw(
     Triangle2d::new([
-      Vec2i::new(500, 200),
-      Vec2i::new(200, 400),
-      Vec2i::new(1300, 760),
+      Vec2u::new(60, 30).normalize(BASE_SCREEN_SIZE),
+      Vec2u::new(70, 20).normalize(BASE_SCREEN_SIZE),
+      Vec2u::new(80, 30).normalize(BASE_SCREEN_SIZE),
     ]),
     FILL,
   );
   display.draw(
     Triangle2d::new([
-      Vec2i::new(900, 200),
-      Vec2i::new(1000, 200),
-      Vec2i::new(950, 287),
+      Vec2u::new(10, 25).normalize(BASE_SCREEN_SIZE),
+      Vec2u::new(20, 20).normalize(BASE_SCREEN_SIZE),
+      Vec2u::new(30, 80).normalize(BASE_SCREEN_SIZE),
+    ]),
+    FILL,
+  );
+  display.draw(
+    Triangle2d::new([
+      Vec2u::new(500, 200).normalize(BASE_SCREEN_SIZE),
+      Vec2u::new(200, 400).normalize(BASE_SCREEN_SIZE),
+      Vec2u::new(1300, 760).normalize(BASE_SCREEN_SIZE),
+    ]),
+    FILL,
+  );
+  display.draw(
+    Triangle2d::new([
+      Vec2u::new(900, 200).normalize(BASE_SCREEN_SIZE),
+      Vec2u::new(1000, 200).normalize(BASE_SCREEN_SIZE),
+      Vec2u::new(950, 287).normalize(BASE_SCREEN_SIZE),
     ]),
     FILL,
   );

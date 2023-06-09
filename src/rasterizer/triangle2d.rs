@@ -1,10 +1,18 @@
-use crate::core::vec2::Point;
+use crate::core::vec2::{Vec2f, Vec2i, Vec2u};
 use crate::core::vec4::Color;
 use crate::displays::display::Display;
 
-fn nearly_equal(left: f64, right: f64) -> bool {
-  const TOLERANCE: f64 = 1.0;
+// Ideally this should be calculated to be
+// line_width_pixels / min(screen_width, screen_height)
+// which is the desired line width normalized to the smallest screen dimension
+// (to ensure lines would definitely be drawn). Alternatively max can be used if
+// thin lines are a requirement.
+const LINE_WIDTH: f64 = 0.001;
 
+pub type Point = Vec2f;
+
+fn nearly_equal(left: f64, right: f64) -> bool {
+  const TOLERANCE: f64 = LINE_WIDTH;
   (left - right).abs() < TOLERANCE
 }
 
@@ -22,18 +30,15 @@ impl LinearEquation {
     let m = if a.x() == b.x() {
       0.0
     } else {
-      (a.y() - b.y()) as f64 / (a.x() - b.x()) as f64
+      (a.y() - b.y()) / (a.x() - b.x())
     };
-    let c = a.y() as f64 - (m * a.x() as f64);
+    let c = a.y() - (m * a.x());
 
     Self::new(m, c)
   }
 
   fn eval_at(&self, point: Point) -> f64 {
-    let x = point.x() as f64;
-    let y = point.y() as f64;
-
-    (self.m * x) + self.c - y
+    (self.m * point.x()) + self.c - point.y()
   }
 
   fn eq(&self, point: Point) -> bool {
@@ -51,7 +56,7 @@ impl LinearEquation {
 
 pub type TrianglePoints = [Point; 3];
 
-fn sort_points(points: &mut TrianglePoints, value: impl Fn(Point) -> i32) {
+fn sort_points(points: &mut TrianglePoints, value: impl Fn(Point) -> f64) {
   if value(points[0]) > value(points[1]) {
     points.swap(0, 1);
   }
@@ -157,11 +162,17 @@ impl dyn Display + '_ {
     triangle: &Triangle2d,
     fill_at: impl Fn(&Triangle2d, Point) -> Option<Color>,
   ) {
-    for y in triangle.top_left().y()..=triangle.bottom_right().y() {
-      for x in triangle.top_left().x()..=triangle.bottom_right().x() {
-        let point = Point::new(x, y);
-        if let Some(color) = fill_at(triangle, point) {
-          self.draw_pixel(point, color);
+    let screen_size = self.size();
+
+    let top = (triangle.top_left().y() * screen_size.y() as f64) as u32;
+    let bottom = (triangle.bottom_right().y() * screen_size.y() as f64) as u32;
+    let left = (triangle.top_left().x() * screen_size.x() as f64) as u32;
+    let right = (triangle.bottom_right().x() * screen_size.x() as f64) as u32;
+
+    for y in top..=bottom {
+      for x in left..=right {
+        if let Some(color) = fill_at(triangle, Vec2u::new(x, y).normalize(screen_size)) {
+          self.draw_pixel(Vec2i::new(x as i32, y as i32), color);
         }
       }
     }
