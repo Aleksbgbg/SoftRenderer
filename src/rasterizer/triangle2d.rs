@@ -126,6 +126,7 @@ impl Triangle2d {
 }
 
 #[allow(dead_code)]
+#[derive(Clone, Copy)]
 pub enum Fill {
   Solid(Color),
   Wireframe(Color),
