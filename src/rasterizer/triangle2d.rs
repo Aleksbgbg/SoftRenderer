@@ -1,6 +1,7 @@
 use crate::core::vec2::{Vec2f, Vec2i, Vec2u};
 use crate::core::vec4::Color;
 use crate::displays::display::Display;
+use std::cmp::Ordering;
 
 // Ideally this should be calculated to be
 // line_width_pixels / min(screen_width, screen_height)
@@ -41,22 +42,18 @@ impl LinearEquation {
     (self.m * point.x()) + self.c - point.y()
   }
 
-  fn eq(&self, point: Point) -> bool {
-    nearly_equal(0.0, self.eval_at(point))
-  }
+  fn compare_to(&self, point: Point) -> Ordering {
+    let value = self.eval_at(point);
 
-  fn le(&self, point: Point) -> bool {
-    0.0 <= self.eval_at(point)
-  }
-
-  fn ge(&self, point: Point) -> bool {
-    0.0 >= self.eval_at(point)
+    if nearly_equal(0.0, value) {
+      Ordering::Equal
+    } else {
+      0.0_f64.total_cmp(&value)
+    }
   }
 }
 
-pub type TrianglePoints = [Point; 3];
-
-fn sort_points(points: &mut TrianglePoints, value: impl Fn(Point) -> f64) {
+fn sort_points(points: &mut [Point; 3], value: impl Fn(Point) -> f64) {
   if value(points[0]) > value(points[1]) {
     points.swap(0, 1);
   }
@@ -69,16 +66,28 @@ fn sort_points(points: &mut TrianglePoints, value: impl Fn(Point) -> f64) {
   }
 }
 
+struct TriangleBoundingLine {
+  equation: LinearEquation,
+  expected_comparison: Ordering,
+}
+
+impl TriangleBoundingLine {
+  fn new(equation: LinearEquation) -> Self {
+    Self {
+      equation,
+      expected_comparison: Ordering::Equal,
+    }
+  }
+}
+
 pub struct Triangle2d {
   top_left: Point,
   bottom_right: Point,
-  left_line: LinearEquation,
-  right_line: LinearEquation,
-  bottom_line: LinearEquation,
+  lines: [TriangleBoundingLine; 3],
 }
 
 impl Triangle2d {
-  pub fn new(mut points: TrianglePoints) -> Self {
+  pub fn new(mut points: [Point; 3]) -> Self {
     sort_points(&mut points, |point| point.y());
     let top = points[0];
     let middle = points[1];
@@ -91,16 +100,30 @@ impl Triangle2d {
     let top_left = Point::new(left.x(), top.y());
     let bottom_right = Point::new(right.x(), bottom.y());
 
-    let left_line = LinearEquation::between(top, middle);
-    let right_line = LinearEquation::between(top, bottom);
-    let bottom_line = LinearEquation::between(middle, bottom);
+    let mut lines = [
+      TriangleBoundingLine::new(LinearEquation::between(top, middle)),
+      TriangleBoundingLine::new(LinearEquation::between(top, bottom)),
+      TriangleBoundingLine::new(LinearEquation::between(middle, bottom)),
+    ];
+
+    let center = Point::new((left.x() + right.x()) / 2.0, (top.y() + bottom.y()) / 2.0);
+
+    for line in lines.iter_mut() {
+      let center_value = line.equation.eval_at(center);
+
+      line.expected_comparison = if nearly_equal(0.0, center_value) {
+        Ordering::Equal
+      } else if 0.0 < center_value {
+        Ordering::Less
+      } else {
+        Ordering::Greater
+      }
+    }
 
     Self {
       top_left,
       bottom_right,
-      left_line,
-      right_line,
-      bottom_line,
+      lines,
     }
   }
 
@@ -112,16 +135,25 @@ impl Triangle2d {
     self.bottom_right
   }
 
-  fn left_line(&self) -> &LinearEquation {
-    &self.left_line
+  fn point_within_bounding_lines(&self, point: Point) -> bool {
+    let mut within_lines = true;
+
+    for line in self.lines.iter() {
+      let comparison = line.equation.compare_to(point);
+      within_lines &= (comparison == line.expected_comparison) || (comparison == Ordering::Equal);
+    }
+
+    within_lines
   }
 
-  fn right_line(&self) -> &LinearEquation {
-    &self.right_line
-  }
+  fn point_on_bounding_lines(&self, point: Point) -> bool {
+    let mut on_lines = false;
 
-  fn bottom_line(&self) -> &LinearEquation {
-    &self.bottom_line
+    for line in self.lines.iter() {
+      on_lines |= line.equation.compare_to(point) == Ordering::Equal;
+    }
+
+    on_lines
   }
 }
 
@@ -136,20 +168,14 @@ impl dyn Display + '_ {
   pub fn draw(&mut self, triangle: Triangle2d, fill: Fill) {
     match fill {
       Fill::Solid(color) => self.draw_internal(&triangle, move |triangle, point| {
-        if triangle.left_line().ge(point)
-          && triangle.right_line().ge(point)
-          && triangle.bottom_line().le(point)
-        {
+        if triangle.point_within_bounding_lines(point) {
           Some(color)
         } else {
           None
         }
       }),
       Fill::Wireframe(color) => self.draw_internal(&triangle, move |triangle, point| {
-        if triangle.left_line().eq(point)
-          || triangle.right_line().eq(point)
-          || triangle.bottom_line().eq(point)
-        {
+        if triangle.point_on_bounding_lines(point) {
           Some(color)
         } else {
           None
